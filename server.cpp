@@ -1,16 +1,4 @@
-#include <arpa/inet.h>
-#include <cerrno>
-#include <cstring>
-#include <iostream>
-#include <pthread.h>
-#include <unistd.h>
-
-// storage client info
-struct clientInfo {
-    int         fd;
-    pthread_t   tid;
-    sockaddr_in addr;
-};
+#include "server.h"
 
 void* working(void* arg) {
     clientInfo* cInfo = (struct clientInfo*)arg;
@@ -26,9 +14,15 @@ void* working(void* arg) {
     std::string sendBuf = "hello, I'm server!\n";
 
     while (true) {
+        memset(recvBuf, 0, sizeof(recvBuf));
         // receive data from client
-        if (read(cInfo->fd, recvBuf, sizeof(recvBuf)) == -1) {
+        int ret = read(cInfo->fd, recvBuf, sizeof(recvBuf));
+        if (ret == -1) {
             perror("Failed to read from client");
+            close(cInfo->fd);
+            return NULL;
+        } else if (ret == 0) {
+            std::cout << "client " << clientIP << ":" << clientPort << " disconnected" << std::endl;
             close(cInfo->fd);
             return NULL;
         }
@@ -47,45 +41,61 @@ void* working(void* arg) {
     return NULL;
 }
 
-int main() {
-    int serverFd = socket(AF_INET, SOCK_STREAM, 0);
-    if (serverFd == -1) {
+Server::Server() {
+    m_port        = -1;
+    m_serverFd    = -1;
+    m_stop_server = false;
+}
+
+Server::~Server() {
+    close(m_serverFd);
+}
+
+void Server::init(uint16_t port) {
+    m_port = port;
+}
+
+void Server::sockListen() {
+    m_serverFd = socket(AF_INET, SOCK_STREAM, 0);
+    if (m_serverFd == -1) {
         perror("Failed to create socket");
-        return -1;
+        exit(-1);
     }
 
     // set port reuse
     int reuse = 1;
-    setsockopt(serverFd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+    setsockopt(m_serverFd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 
     // set server address
     sockaddr_in serverAddr;
     serverAddr.sin_family      = AF_INET;
     serverAddr.sin_addr.s_addr = INADDR_ANY;
-    serverAddr.sin_port        = htons(10000);
+    serverAddr.sin_port        = htons(m_port);
 
-    if (bind(serverFd, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == -1) {
+    if (bind(m_serverFd, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == -1) {
         perror("Failed to bind socket");
-        close(serverFd);
-        return -1;
+        close(m_serverFd);
+        exit(-1);
     }
 
-    if (listen(serverFd, 8) == -1) {
+    if (listen(m_serverFd, 8) == -1) {
         perror("Failed to listen socket");
-        close(serverFd);
-        return -1;
+        close(m_serverFd);
+        exit(-1);
     }
+}
 
-    while (true) {
+void Server::loopHandle() {
+    while (!m_stop_server) {
         // client address
         sockaddr_in clientAddr;
         socklen_t   clientAddrLen = sizeof(clientAddr);
 
-        int clientFd = accept(serverFd, (struct sockaddr*)&clientAddr, &clientAddrLen);
+        int clientFd = accept(m_serverFd, (struct sockaddr*)&clientAddr, &clientAddrLen);
         if (clientFd == -1) {
             perror("Failed to accept client connection");
-            close(serverFd);
-            return -1;
+            close(m_serverFd);
+            exit(-1);
         }
 
         // storage client info(fd and addr), send to thread function
@@ -101,8 +111,4 @@ int main() {
         // The thread will automatically release resources when it ends.
         pthread_detach(cInfo->tid);
     }
-
-    close(serverFd);
-
-    return 0;
 }
