@@ -14,13 +14,6 @@
 
 const int MAX_EVENT_NUM = 10000;  // max event number
 
-// storage client info
-struct clientInfo {
-    int         fd;
-    pthread_t   tid;
-    sockaddr_in addr;
-};
-
 class Server {
 public:
     Server();

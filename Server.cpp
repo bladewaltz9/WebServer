@@ -1,28 +1,5 @@
 #include "Server.h"
 
-void* working(void* arg) {
-    clientInfo* cInfo = (struct clientInfo*)arg;
-
-    // get client IP and Port
-    std::string clientIP   = inet_ntoa(cInfo->addr.sin_addr);
-    uint16_t    clientPort = ntohs(cInfo->addr.sin_port);
-
-    std::cout << "clientIP : " << clientIP << ", "
-              << "clientPort : " << clientPort << std::endl;
-
-    char        recvBuf[1024];
-    std::string sendBuf = "hello, I'm server!\n";
-
-    while (true) {
-        memset(recvBuf, 0, sizeof(recvBuf));
-        // receive data from client
-    }
-
-    close(cInfo->fd);
-
-    return NULL;
-}
-
 Server::Server() {
     m_port        = -1;
     m_serverFd    = -1;
