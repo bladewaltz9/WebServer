@@ -4,7 +4,7 @@ CFLAGS = -Wall -std=c++11 -g
 LDFLAGS = -pthread
 
 TARGET = server
-SOURCES = server.cpp main.cpp
+SOURCES = Server.cpp main.cpp EpollOperate.cpp
 OBJECTS = $(SOURCES:.cpp=.o)
 
 .PHONY: all clean
