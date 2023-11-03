@@ -1,4 +1,4 @@
-#include "EpollOperate.h"
+#include "epoll_operate.h"
 
 EpollOperate::EpollOperate() {}
 EpollOperate::~EpollOperate() {}
@@ -9,7 +9,7 @@ EpollOperate::~EpollOperate() {}
  * @param fd the fd triggered event
  * @param oneShot Whether to add EPOLLONESHOT option
  */
-void EpollOperate::addFd(int epollFd, int fd, bool oneShot) {
+void EpollOperate::AddFd(int epollFd, int fd, bool oneShot) {
     epoll_event event;
     event.data.fd = fd;
     event.events  = EPOLLIN | EPOLLRDHUP;
@@ -18,7 +18,7 @@ void EpollOperate::addFd(int epollFd, int fd, bool oneShot) {
 
     epoll_ctl(epollFd, EPOLL_CTL_ADD, fd, &event);
 
-    setNonBlocking(fd);
+    SetNonBlocking(fd);
 }
 
 /**
@@ -26,7 +26,7 @@ void EpollOperate::addFd(int epollFd, int fd, bool oneShot) {
  * @param epollFd epoll fd
  * @param fd the fd to delete
  */
-void EpollOperate::delFd(int epollFd, int fd) {
+void EpollOperate::DeleteFd(int epollFd, int fd) {
     epoll_ctl(epollFd, EPOLL_CTL_DEL, fd, 0);
     close(fd);
 }
@@ -38,7 +38,7 @@ void EpollOperate::delFd(int epollFd, int fd) {
  * @param fd the fd to modify
  * @param events events to modify
  */
-void EpollOperate::modFd(int epollFd, int fd, int events) {
+void EpollOperate::ModifyFd(int epollFd, int fd, int events) {
     epoll_event event;
     event.data.fd = fd;
     event.events  = events | EPOLLONESHOT | EPOLLRDHUP;
@@ -48,7 +48,7 @@ void EpollOperate::modFd(int epollFd, int fd, int events) {
 /**
  * @brief set fd to non-blocking mode.
  */
-void EpollOperate::setNonBlocking(int fd) {
+void EpollOperate::SetNonBlocking(int fd) {
     int flags = fcntl(fd, F_GETFL);
     flags |= O_NONBLOCK;
     fcntl(fd, F_SETFL, flags);

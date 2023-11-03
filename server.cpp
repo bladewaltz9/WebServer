@@ -1,4 +1,4 @@
-#include "Server.h"
+#include "server.h"
 
 Server::Server() {
     m_port        = -1;
@@ -16,7 +16,7 @@ void Server::init(uint16_t port) {
     m_port = port;
 }
 
-void Server::eventListen() {
+void Server::EventListen() {
     m_serverFd = socket(AF_INET, SOCK_STREAM, 0);
     if (m_serverFd == -1) {
         perror("Failed to create socket");
@@ -52,10 +52,10 @@ void Server::eventListen() {
         exit(-1);
     }
 
-    epollOperate.addFd(m_epollFd, m_serverFd, false);
+    epollOperate.AddFd(m_epollFd, m_serverFd, false);
 }
 
-void Server::eventLoopHandle() {
+void Server::EventLoopHandle() {
     char        recvBuf[1024];
     std::string sendBuf = "hello, I'm server!\n";
 
@@ -89,7 +89,7 @@ void Server::eventLoopHandle() {
                           << "clientPort : " << clientPort << std::endl;
 
                 // add clientFd to epoll
-                epollOperate.addFd(m_epollFd, clientFd, false);
+                epollOperate.AddFd(m_epollFd, clientFd, false);
             } else if (events[i].events & EPOLLIN) {  // read event
                 memset(recvBuf, 0, sizeof(recvBuf));
                 int ret = read(curFd, recvBuf, sizeof(recvBuf));

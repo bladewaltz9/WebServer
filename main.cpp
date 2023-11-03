@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "Server.h"
+#include "server.h"
 
 int main() {
     uint16_t port = 10000;
@@ -9,9 +9,9 @@ int main() {
 
     server.init(port);
 
-    server.eventListen();
+    server.EventListen();
 
-    server.eventLoopHandle();
+    server.EventLoopHandle();
 
     return 0;
 }

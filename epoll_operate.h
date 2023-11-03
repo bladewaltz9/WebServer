@@ -11,11 +11,11 @@ public:
     ~EpollOperate();
 
 public:
-    void addFd(int epollFd, int fd, bool oneShot);
-    void delFd(int epollFd, int fd);
-    void modFd(int epollFd, int fd, int events);
+    void AddFd(int epollFd, int fd, bool oneShot);
+    void DeleteFd(int epollFd, int fd);
+    void ModifyFd(int epollFd, int fd, int events);
 
-    void setNonBlocking(int fd);
+    void SetNonBlocking(int fd);
 };
 
 #endif

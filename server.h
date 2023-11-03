@@ -10,7 +10,7 @@
 #include <sys/epoll.h>
 #include <unistd.h>
 
-#include "EpollOperate.h"
+#include "epoll_operate.h"
 
 const int MAX_EVENT_NUM = 10000;  // max event number
 
@@ -23,8 +23,8 @@ public:
     void init(uint16_t port);
 
     // socket
-    void eventListen();
-    void eventLoopHandle();
+    void EventListen();
+    void EventLoopHandle();
 
 private:
     uint16_t m_port;
