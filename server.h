@@ -39,15 +39,17 @@ private:
 private:
     bool m_stop_server;
 
-    uint16_t  m_port;
-    int32_t   m_serverFd;
-    HttpConn* clients;
+    uint16_t m_port;
+    int32_t  m_serverFd;
 
-    int32_t      m_epollFd;
-    epoll_event  events[kMaxEventNum];  // epoll kernel event table
-    EpollOperate epollOperate;
+    int32_t                  m_epollFd;
+    std::vector<epoll_event> m_events;  // epoll kernel event table
+    std::vector<HttpConn>    m_clients;
 
-    ThreadPool<HttpConn>* m_pool;
+    EpollOperate m_epollOperate;
+
+    // TODO: 这里使用shared_ptr，但thread_pool.h 的内置线程类中没有使用，会不会有内存泄漏？
+    std::shared_ptr<ThreadPool<HttpConn>> m_pool;
 };
 
 #endif

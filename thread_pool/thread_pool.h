@@ -15,7 +15,7 @@ class ThreadPool {
 public:
     ThreadPool(int num_threads, int max_requests)
         : m_threads(std::vector<std::thread>(num_threads)),
-          m_queue(new ThreadSafeQueue<T*>(max_requests)),
+          m_queue(std::make_unique<ThreadSafeQueue<T*>>(max_requests)),
           m_shutdown(false) {}
 
     ThreadPool(const ThreadPool&) = delete;
@@ -26,9 +26,7 @@ public:
 
     ThreadPool& operator=(ThreadPool&&) = delete;
 
-    ~ThreadPool() {
-        delete m_queue;
-    }
+    ~ThreadPool() {}
 
 private:
     // Built-in thread worker class
@@ -69,10 +67,10 @@ public:
     bool append(T* request);  // add request to request queue
 
 private:
-    std::vector<std::thread> m_threads;  // work threads queue
-    ThreadSafeQueue<T*>*     m_queue;    // tasks queue
-    std::mutex               m_condition_mutex;
-    std::condition_variable  m_condition;
+    std::vector<std::thread>             m_threads;  // work threads queue
+    std::unique_ptr<ThreadSafeQueue<T*>> m_queue;    // tasks queue
+    std::mutex                           m_condition_mutex;
+    std::condition_variable              m_condition;
 
     bool m_shutdown;  // whether shutdown thread pool
 };

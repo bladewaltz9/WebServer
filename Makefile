@@ -1,6 +1,6 @@
 CPP = g++
 GCC = gcc
-CFLAGS = -Wall -std=c++11 -g
+CFLAGS = -Wall -std=c++17 -g
 LDFLAGS = -pthread
 
 TARGET = server
