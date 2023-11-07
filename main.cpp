@@ -8,10 +8,7 @@ int main() {
     Server server;
 
     server.init(port);
-
-    server.EventListen();
-
-    server.EventLoopHandle();
+    server.start();
 
     return 0;
 }

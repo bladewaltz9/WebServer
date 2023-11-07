@@ -5,15 +5,26 @@ Server::Server() {
     m_serverFd    = -1;
     m_epollFd     = -1;
     m_stop_server = false;
+    m_pool        = nullptr;
+
+    clients = new HttpConn[kMaxFDNum];
 }
 
 Server::~Server() {
     close(m_serverFd);
     close(m_epollFd);
+    delete[] clients;
+    delete m_pool;
 }
 
 void Server::init(uint16_t port) {
     m_port = port;
+}
+
+void Server::start() {
+    InitThreadPool();
+    EventListen();
+    EventLoopHandle();
 }
 
 void Server::EventListen() {
@@ -61,7 +72,7 @@ void Server::EventLoopHandle() {
 
     while (!m_stop_server) {
         // wait event triggering
-        int readyNum = epoll_wait(m_epollFd, events, MAX_EVENT_NUM, -1);
+        int readyNum = epoll_wait(m_epollFd, events, kMaxEventNum, -1);
         if (readyNum == -1) {
             perror("Fail to epoll_wait");
             exit(-1);
@@ -70,7 +81,7 @@ void Server::EventLoopHandle() {
         // handle ready event
         for (int i = 0; i < readyNum; ++i) {
             int curFd = events[i].data.fd;
-            if (curFd == m_serverFd) {  // client requests connection
+            if (curFd == m_serverFd) {  // there is a client requesting connection
                 // accept client connection
                 sockaddr_in clientAddr;
                 socklen_t   clientAddrLen = sizeof(clientAddr);
@@ -90,6 +101,8 @@ void Server::EventLoopHandle() {
 
                 // add clientFd to epoll
                 epollOperate.AddFd(m_epollFd, clientFd, false);
+                // init the info of new client
+                clients[clientFd].init(clientFd, clientAddr);
             } else if (events[i].events & EPOLLIN) {  // read event
                 memset(recvBuf, 0, sizeof(recvBuf));
                 int ret = read(curFd, recvBuf, sizeof(recvBuf));
@@ -104,13 +117,21 @@ void Server::EventLoopHandle() {
                 }
                 std::cout << "recvBuf: " << recvBuf;
 
-                // send data to client
-                if (write(curFd, sendBuf.c_str(), sendBuf.size()) == -1) {
-                    perror("Failed to send to client");
-                    close(curFd);
-                    exit(-1);
-                }
+                if (!m_pool->append(&clients[curFd])) { std::cout << "append failed" << std::endl; }
+                sleep(1);
+
+                // // send data to client
+                // if (write(curFd, sendBuf.c_str(), sendBuf.size()) == -1) {
+                //     perror("Failed to send to client");
+                //     close(curFd);
+                //     exit(-1);
+                // }
             }
         }
     }
+}
+
+void Server::InitThreadPool() {
+    m_pool = new ThreadPool<HttpConn>(kThreadNum, kMaxRequests);
+    m_pool->init();
 }
