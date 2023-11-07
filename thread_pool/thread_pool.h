@@ -14,7 +14,7 @@ template <typename T>
 class ThreadPool {
 public:
     ThreadPool(int num_threads, int max_requests)
-        : m_threads(std::vector<std::thread>(num_threads)),
+        : m_threads(num_threads),
           m_queue(std::make_unique<ThreadSafeQueue<T*>>(max_requests)),
           m_shutdown(false) {}
 

@@ -14,12 +14,13 @@
 #include "http_conn/http_conn.h"
 #include "thread_pool/thread_pool.h"
 
-const int kMaxEventNum = 10000;  // max event number
-const int kThreadNum   = 4;      // the num of thread
-const int kMaxRequests = 1000;   // the max num of requests
-const int kMaxFDNum    = 65535;  // the max num of fd
-
 class Server {
+public:
+    static const int kMaxEventNum = 10000;  // max event number
+    static const int kThreadNum   = 4;      // the num of thread
+    static const int kMaxRequests = 1000;   // the max num of requests
+    static const int kMaxFDNum    = 65535;  // the max num of fd
+
 public:
     Server();
     ~Server();

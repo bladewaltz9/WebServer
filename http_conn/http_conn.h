@@ -10,12 +10,15 @@ public:
     ~HttpConn();
 
 public:
-    void init(int fd, sockaddr_in addr);
+    void init(int fd, sockaddr_in& addr);
     void process();
+    bool read();
 
 private:
     int         m_fd;
     sockaddr_in m_addr;
+
+    std::string m_read_buf;  // read buffer
 };
 
 #endif

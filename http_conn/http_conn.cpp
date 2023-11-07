@@ -4,7 +4,7 @@ HttpConn::HttpConn() {}
 
 HttpConn::~HttpConn() {}
 
-void HttpConn::init(int fd, sockaddr_in addr) {
+void HttpConn::init(int fd, sockaddr_in& addr) {
     m_fd   = fd;
     m_addr = addr;
 }
@@ -14,3 +14,5 @@ void HttpConn::process() {
     uint16_t    clientPort = ntohs(m_addr.sin_port);
     std::cout << "receive a message from " << clientIP << ":" << clientPort << std::endl;
 }
+
+bool HttpConn::read() {}

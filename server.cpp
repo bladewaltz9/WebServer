@@ -1,12 +1,16 @@
 #include "server.h"
 
+// defined outside the class: avoid make_shared<> compile wrong in InitThreadPool();
+const int Server::kMaxRequests;
+const int Server::kThreadNum;
+
 Server::Server()
     : m_stop_server(false),
       m_port(-1),
       m_serverFd(-1),
       m_epollFd(-1),
-      m_events(std::vector<epoll_event>(kMaxEventNum)),
-      m_clients(std::vector<HttpConn>(kMaxFDNum)),
+      m_events(Server::kMaxEventNum),
+      m_clients(Server::kMaxFDNum),
       m_pool(nullptr) {}
 
 Server::~Server() {
@@ -69,7 +73,7 @@ void Server::EventLoopHandle() {
 
     while (!m_stop_server) {
         // wait event triggering
-        int readyNum = epoll_wait(m_epollFd, &m_events[0], kMaxEventNum, -1);
+        int readyNum = epoll_wait(m_epollFd, &m_events[0], Server::kMaxEventNum, -1);
         if (readyNum == -1) {
             perror("Fail to epoll_wait");
             exit(-1);
@@ -131,6 +135,6 @@ void Server::EventLoopHandle() {
 }
 
 void Server::InitThreadPool() {
-    m_pool = std::make_shared<ThreadPool<HttpConn>>(kThreadNum, kMaxRequests);
+    m_pool = std::make_shared<ThreadPool<HttpConn>>(Server::kThreadNum, Server::kMaxRequests);
     m_pool->init();
 }
