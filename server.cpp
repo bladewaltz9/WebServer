@@ -7,15 +7,15 @@ const int Server::kThreadNum;
 Server::Server()
     : m_stop_server(false),
       m_port(-1),
-      m_serverFd(-1),
-      m_epollFd(-1),
-      m_events(Server::kMaxEventNum),
-      m_clients(Server::kMaxFDNum),
+      m_server_fd(-1),
+      m_epoll_fd(-1),
+      m_events(kMaxEventNum),
+      m_clients(kMaxFDNum),
       m_pool(nullptr) {}
 
 Server::~Server() {
-    close(m_serverFd);
-    close(m_epollFd);
+    close(m_server_fd);
+    close(m_epoll_fd);
 }
 
 void Server::init(uint16_t port) {
@@ -29,112 +29,86 @@ void Server::start() {
 }
 
 void Server::EventListen() {
-    m_serverFd = socket(AF_INET, SOCK_STREAM, 0);
-    if (m_serverFd == -1) {
+    m_server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (m_server_fd == -1) {
         perror("Failed to create socket");
         exit(-1);
     }
 
     // set port reuse
     int reuse = 1;
-    setsockopt(m_serverFd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+    setsockopt(m_server_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 
     // set server address
-    sockaddr_in serverAddr;
-    serverAddr.sin_family      = AF_INET;
-    serverAddr.sin_addr.s_addr = INADDR_ANY;
-    serverAddr.sin_port        = htons(m_port);
+    sockaddr_in server_addr;
+    server_addr.sin_family      = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port        = htons(m_port);
 
-    if (bind(m_serverFd, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == -1) {
+    if (bind(m_server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
         perror("Failed to bind socket");
-        close(m_serverFd);
+        close(m_server_fd);
         exit(-1);
     }
 
-    if (listen(m_serverFd, 8) == -1) {
+    if (listen(m_server_fd, 8) == -1) {
         perror("Failed to listen socket");
-        close(m_serverFd);
+        close(m_server_fd);
         exit(-1);
     }
 
     // create epoll
-    m_epollFd = epoll_create(1);
-    if (m_epollFd == -1) {
+    m_epoll_fd = epoll_create(1);
+    if (m_epoll_fd == -1) {
         perror("Failed to create epoll");
         exit(-1);
     }
+    HttpConn::m_epoll_fd = m_epoll_fd;
 
-    m_epollOperate.AddFd(m_epollFd, m_serverFd, false);
+    m_epoll_operate.AddFd(m_epoll_fd, m_server_fd, false);
 }
 
 void Server::EventLoopHandle() {
-    char        recvBuf[1024];
-    std::string sendBuf = "hello, I'm server!\n";
-
     while (!m_stop_server) {
         // wait event triggering
-        int readyNum = epoll_wait(m_epollFd, &m_events[0], Server::kMaxEventNum, -1);
-        if (readyNum == -1) {
+        int ready_num = epoll_wait(m_epoll_fd, &m_events[0], Server::kMaxEventNum, -1);
+        if (ready_num == -1) {
             perror("Fail to epoll_wait");
             exit(-1);
         }
 
         // handle ready event
-        for (int i = 0; i < readyNum; ++i) {
-            int curFd = m_events[i].data.fd;
-            if (curFd == m_serverFd) {  // there is a client requesting connection
+        for (int i = 0; i < ready_num; ++i) {
+            int cur_fd = m_events[i].data.fd;
+            if (cur_fd == m_server_fd) {  // there is a client requesting connection
                 // accept client connection
-                sockaddr_in clientAddr;
-                socklen_t   clientAddrLen = sizeof(clientAddr);
+                sockaddr_in client_addr;
+                socklen_t   client_addr_len = sizeof(client_addr);
 
-                int clientFd = accept(m_serverFd, (struct sockaddr*)&clientAddr, &clientAddrLen);
-                if (clientFd == -1) {
+                int client_fd =
+                    accept(m_server_fd, (struct sockaddr*)&client_addr, &client_addr_len);
+                if (client_fd == -1) {
                     perror("Failed to accept client connection");
-                    close(m_serverFd);
+                    close(m_server_fd);
                     exit(-1);
                 }
 
                 // print connected client info
-                std::string clientIP   = inet_ntoa(clientAddr.sin_addr);
-                uint16_t    clientPort = ntohs(clientAddr.sin_port);
-                std::cout << "clientIP : " << clientIP << ", "
-                          << "clientPort : " << clientPort << std::endl;
+                std::string client_ip   = inet_ntoa(client_addr.sin_addr);
+                uint16_t    client_port = ntohs(client_addr.sin_port);
+                std::cout << "client_ip : " << client_ip << ", "
+                          << "client_port : " << client_port << std::endl;
 
-                // add clientFd to epoll
-                m_epollOperate.AddFd(m_epollFd, clientFd, false);
                 // init the info of new client
-                m_clients[clientFd].init(clientFd, clientAddr);
+                m_clients[client_fd].init(client_fd, client_addr);
             } else if (m_events[i].events & EPOLLIN) {  // read event
-                memset(recvBuf, 0, sizeof(recvBuf));
-                int ret = read(curFd, recvBuf, sizeof(recvBuf));
-                if (ret == -1) {
-                    perror("Failed to read from client");
-                    close(curFd);
-                    exit(-1);
-                } else if (ret == 0) {
-                    std::cout << "client disconnected" << std::endl;
-                    close(curFd);
-                    continue;
-                }
-                std::cout << "recvBuf: " << recvBuf;
-
-                if (!m_pool->append(&m_clients[curFd])) {
-                    std::cout << "append failed" << std::endl;
-                }
-                sleep(1);
-
-                // // send data to client
-                // if (write(curFd, sendBuf.c_str(), sendBuf.size()) == -1) {
-                //     perror("Failed to send to client");
-                //     close(curFd);
-                //     exit(-1);
-                // }
+                if (m_clients[cur_fd].read()) { m_pool->append(&m_clients[cur_fd]); }
             }
         }
     }
 }
 
 void Server::InitThreadPool() {
-    m_pool = std::make_shared<ThreadPool<HttpConn>>(Server::kThreadNum, Server::kMaxRequests);
+    m_pool = std::make_shared<ThreadPool<HttpConn>>(kThreadNum, kMaxRequests);
     m_pool->init();
 }
