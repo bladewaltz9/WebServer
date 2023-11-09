@@ -1,21 +1,31 @@
-CPP = g++
+CXX = g++
 GCC = gcc
-CFLAGS = -Wall -std=c++17 -g
+CFLAGS = -Wall -g -std=c99
+CXXFLAGS = -Wall -g -std=c++17
 LDFLAGS = -pthread
 
 TARGET = server
-SOURCES = server.cpp main.cpp ./epoll_operate/epoll_operate.cpp ./http_conn/http_conn.cpp
-OBJECTS = $(SOURCES:.cpp=.o)
+
+C_FILES = ./http_parser/http_parser.c
+
+CPP_FILES = server.cpp main.cpp
+CPP_FILES += ./epoll_operate/epoll_operate.cpp
+CPP_FILES += ./http_conn/http_conn.cpp
+
+OBJECTS = $(CPP_FILES:.cpp=.o) $(C_FILES:.c=.o)
 
 .PHONY: all clean
 
 all: $(TARGET)
 
 $(TARGET): $(OBJECTS)
-	$(CPP) $(CFLAGS) $(LDFLAGS) $^ -o $@
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ -o $@
+
+%.o:%.c
+	$(GCC) $(CFLAGS) -c $< -o $@
 
 %.o: %.cpp
-	$(CPP) $(CFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
 	rm -rf $(OBJECTS) $(TARGET)
