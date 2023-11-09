@@ -15,7 +15,7 @@ struct HttpRequestInfo {
     std::string url;
     std::string version;
     std::string host;
-    std::string connection;  // keep-alive or close
+    bool        keep_alive;  // keep-alive or close
     std::string content_type;
     std::string content_length;
     std::string body;

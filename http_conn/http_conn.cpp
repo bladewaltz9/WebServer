@@ -83,7 +83,16 @@ int on_header_value_cb(http_parser* parser, const char* at, size_t length) {
     if (request->last_header_field == "Host") {
         request->host = std::string(at, length);
     } else if (request->last_header_field == "Connection") {
-        request->connection = std::string(at, length);
+        // Determine whether it is Keep-Alive
+        if (parser->http_major > 0 && parser->http_minor > 0) {  // HTTP 1.1 or above
+            request->keep_alive = true;
+        } else {  // HTTP 1.0 or below
+            if (std::string(at, length) == "keep-alive") {
+                request->keep_alive = true;
+            } else {
+                request->keep_alive = false;
+            }
+        }
     } else if (request->last_header_field == "Content-Type") {
         request->content_type = std::string(at, length);
     } else if (request->last_header_field == "Content-Length") {
@@ -125,7 +134,7 @@ bool HttpConn::ParseHttpRequest() {
     std::cout << "URL: " << m_request_info.url << std::endl;
     std::cout << "Version: " << m_request_info.version << std::endl;
     std::cout << "Host: " << m_request_info.host << std::endl;
-    std::cout << "Connection: " << m_request_info.connection << std::endl;
+    std::cout << "keep-alive: " << m_request_info.keep_alive << std::endl;
     std::cout << "Content-Type: " << m_request_info.content_type << std::endl;
     std::cout << "Content-Length: " << m_request_info.content_length << std::endl;
     std::cout << "Body: " << m_request_info.body << std::endl;
