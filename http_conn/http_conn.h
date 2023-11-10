@@ -6,6 +6,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <sys/stat.h>
 
 #include "../epoll_operate/epoll_operate.h"
 #include "../http_parser/http_parser.h"
@@ -25,22 +26,21 @@ struct HttpRequestInfo {
 
 class HttpConn {
 public:
-    static const int kReadBufSize = 2048;  // read buffer size
+    static const int         kReadBufSize = 2048;  // read buffer size
+    static const std::string kResourcePath;        // resource path
 
     static int m_epoll_fd;
     static int m_user_cnt;
 
-    // // HTTP request message parsing results
-    // enum HTTP_CODE {
-    //     NO_REQUEST,         // the request is incomplete
-    //     GET_REQUEST,        // get a complete request
-    //     BAD_REQUEST,        // there is an error in request
-    //     NO_RESOURCE,        // the server has no resources
-    //     FORBIDDEN_REQUEST,  // client doesn't have access
-    //     FILE_REQUEST,       // successfully get the file
-    //     INTERNAL_ERROR,     // server internal error
-    //     CLOSED_CONNECTION   // client has closed connection
-    // };
+    // HTTP request message parsing results
+    enum HTTP_CODE {
+        BAD_REQUEST,        // there is an error in request
+        GET_REQUEST,        // successfully get a complete request
+        GET_FILE,           // successfully get the file
+        NO_RESOURCE,        // the server has no resources
+        FORBIDDEN_REQUEST,  // client doesn't have access
+        INTERNAL_ERROR,     // server internal error
+    };
 
 public:
     HttpConn();
@@ -49,13 +49,19 @@ public:
 public:
     void init(int fd, sockaddr_in& addr);
     void process();
-    bool ParseHttpRequest();
-
     // read messages sent by client
     bool read();
 
 private:
     void InitState();
+    /**
+     * @brief parse the HTTP request message
+     * @return HTTP_CODE possible results:
+     *          - BAD_REQUEST: there is an error in request,
+     *          - FILE_REQUEST: parse successfully and then request the file
+     */
+    HTTP_CODE ParseHttpRequest();
+    HTTP_CODE GetRequestedFile();
 
 private:
     int         m_fd;
@@ -67,6 +73,9 @@ private:
     EpollOperate    m_epoll_operate;
     http_parser*    m_parser;
     HttpRequestInfo m_request_info;
+
+    std::string m_file_name;
+    struct stat m_file_stat;
 };
 
 #endif

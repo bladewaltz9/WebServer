@@ -1,5 +1,7 @@
 #include "http_conn.h"
 
+const std::string HttpConn::kResourcePath = "./resources";
+
 int HttpConn::m_epoll_fd = -1;
 int HttpConn::m_user_cnt = 0;
 
@@ -40,8 +42,10 @@ void HttpConn::process() {
     // std::string recv_buf(m_read_buf);
     // std::cout << recv_buf;
 
-    // parse http request
-    ParseHttpRequest();
+    HTTP_CODE ret_request = ParseHttpRequest();
+    if (ret_request == GET_REQUEST) { ret_request = GetRequestedFile(); }
+    std::cout << "m_file_name = " << m_file_name << std::endl;
+    std::cout << "ret_request = " << ret_request << std::endl;
 }
 
 int on_message_begin_cb(http_parser* parser) {
@@ -108,8 +112,16 @@ int on_body_cb(http_parser* parser, const char* at, size_t length) {
     return 0;
 }
 
-bool HttpConn::ParseHttpRequest() {
+HttpConn::HTTP_CODE HttpConn::ParseHttpRequest() {
     http_parser_settings parser_set;
+
+    // // test http request parsing
+    // std::string test_request = "GET /index.html HTTP/1.1\r\n"
+    //                            "Host:www.example.com\r\n"
+    //                            "Connection:keep-alive\r\n"
+    //                            "";
+    // std::strcpy(m_read_buf, test_request.c_str());
+    // m_read_idx = test_request.size();
 
     // http_parser callback functions
     http_parser_settings_init(&parser_set);
@@ -122,24 +134,51 @@ bool HttpConn::ParseHttpRequest() {
     parser_set.on_message_complete = on_message_complete_cb;
 
     http_parser_init(m_parser, HTTP_REQUEST);
+    // m_request_info 用于回调函数中保存解析到的 Http 请求信息。
     m_parser->data = &m_request_info;
 
     size_t parsed_len = http_parser_execute(m_parser, &parser_set, m_read_buf, m_read_idx);
-    if ((int)parsed_len != m_read_idx) {
+
+    if ((int)parsed_len != m_read_idx || m_parser->http_errno != 0) {
         std::cout << "Error parsing HTTP request" << std::endl;
-        return false;
+        return BAD_REQUEST;
+    }
+    return GET_REQUEST;
+
+    // std::cout << "Method: " << m_request_info.method << std::endl;
+    // std::cout << "URL: " << m_request_info.url << std::endl;
+    // std::cout << "Version: " << m_request_info.version << std::endl;
+    // std::cout << "Host: " << m_request_info.host << std::endl;
+    // std::cout << "keep-alive: " << m_request_info.keep_alive << std::endl;
+    // std::cout << "Content-Type: " << m_request_info.content_type << std::endl;
+    // std::cout << "Content-Length: " << m_request_info.content_length << std::endl;
+    // std::cout << "Body: " << m_request_info.body << std::endl;
+}
+
+HttpConn::HTTP_CODE HttpConn::GetRequestedFile() {
+    // get requested file path from url
+    m_file_name = m_request_info.url;
+    if (m_file_name == "/") m_file_name += "index.html";
+    std::string file_path = kResourcePath + m_file_name;
+
+    // get file status, check if file exists
+    if (stat(file_path.c_str(), &m_file_stat) == -1) {
+        perror("file not exist");
+        return NO_RESOURCE;
     }
 
-    std::cout << "Method: " << m_request_info.method << std::endl;
-    std::cout << "URL: " << m_request_info.url << std::endl;
-    std::cout << "Version: " << m_request_info.version << std::endl;
-    std::cout << "Host: " << m_request_info.host << std::endl;
-    std::cout << "keep-alive: " << m_request_info.keep_alive << std::endl;
-    std::cout << "Content-Type: " << m_request_info.content_type << std::endl;
-    std::cout << "Content-Length: " << m_request_info.content_length << std::endl;
-    std::cout << "Body: " << m_request_info.body << std::endl;
+    // check if file has read permission
+    if ((m_file_stat.st_mode & S_IROTH) == 0) {
+        perror("file has no read permission");
+        return FORBIDDEN_REQUEST;
+    }
 
-    return true;
+    // check if it's a directory
+    if (S_ISDIR(m_file_stat.st_mode)) {
+        perror("file is a directory");
+        return BAD_REQUEST;
+    }
+    return GET_FILE;
 }
 
 bool HttpConn::read() {
