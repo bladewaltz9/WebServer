@@ -103,6 +103,10 @@ void Server::EventLoopHandle() {
                 m_clients[client_fd].init(client_fd, client_addr);
             } else if (m_events[i].events & EPOLLIN) {  // read event
                 if (m_clients[cur_fd].read()) { m_pool->append(&m_clients[cur_fd]); }
+            } else if (m_events[i].events & EPOLLOUT) {  // write event
+                if (!m_clients[cur_fd].write()) { m_clients[cur_fd].CloseConn(); }
+            } else {
+                perror("Unexpected event");
             }
         }
     }

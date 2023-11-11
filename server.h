@@ -9,6 +9,7 @@
 #include <pthread.h>
 #include <sys/epoll.h>
 #include <unistd.h>
+#include <vector>
 
 #include "epoll_operate/epoll_operate.h"
 #include "http_conn/http_conn.h"
