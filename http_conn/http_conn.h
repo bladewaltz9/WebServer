@@ -123,8 +123,8 @@ private:
     // m_iv[1]: file data
     struct iovec m_iv[2];
 
-    int m_bytes_to_send;
-    int m_bytes_have_send;
+    size_t m_bytes_to_send;
+    size_t m_bytes_have_send;
 };
 
 #endif

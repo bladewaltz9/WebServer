@@ -33,7 +33,9 @@ private:
     class ThreadWorker {
     public:
         ThreadWorker(ThreadPool* pool, int id) : m_pool(pool), m_id(id) {
+#ifdef DEBUG
             std::cout << "Success to start thread " << m_id << std::endl;
+#endif
         }
 
         // overload () operation, use object() to call

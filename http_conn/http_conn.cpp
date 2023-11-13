@@ -65,17 +65,16 @@ void HttpConn::CloseConn() {
 }
 
 void HttpConn::process() {
-    std::string clientIP   = inet_ntoa(m_addr.sin_addr);
-    uint16_t    clientPort = ntohs(m_addr.sin_port);
-    std::cout << "receive a message from " << clientIP << ":" << clientPort << std::endl;
+#ifdef ENABLE_LOG
+    // std::string clientIP   = inet_ntoa(m_addr.sin_addr);
+    // uint16_t    clientPort = ntohs(m_addr.sin_port);
+    // std::cout << "receive a message from " << clientIP << ":" << clientPort << std::endl;
     // std::string recv_buf(m_read_buf);
     // std::cout << recv_buf;
+#endif
 
     HTTP_CODE ret_request = ParseHttpRequest();
     if (ret_request == GET_REQUEST) { ret_request = GetRequestedFile(); }
-    std::cout << "m_file_name = " << m_file_name << std::endl;
-    std::cout << "ret_request = " << ret_request << std::endl;
-    printf("m_request_info.keep_alive = %d\n", m_request_info.keep_alive);
 
     bool ret_response = GenerateHttpResponse(ret_request);
     if (!ret_response) {
@@ -152,12 +151,12 @@ bool HttpConn::write() {
 }
 
 int on_message_begin_cb(http_parser* parser) {
-    std::cout << "Message complete" << std::endl;
+    // std::cout << "Message complete" << std::endl;
     return 0;
 }
 
 int on_headers_complete_cb(http_parser* parser) {
-    std::cout << "Headers complete" << std::endl;
+    // std::cout << "Headers complete" << std::endl;
     HttpRequestInfo* request = static_cast<HttpRequestInfo*>(parser->data);
     request->method          = std::string(http_method_str((http_method)parser->method));
     request->version =
@@ -170,26 +169,26 @@ int on_headers_complete_cb(http_parser* parser) {
 }
 
 int on_message_complete_cb(http_parser* parser) {
-    std::cout << "Message complete" << std::endl;
+    // std::cout << "Message complete" << std::endl;
     return 0;
 }
 
 int on_url_cb(http_parser* parser, const char* at, size_t length) {
-    std::cout << "URL: " << std::string(at, length) << std::endl;
+    // std::cout << "URL: " << std::string(at, length) << std::endl;
     HttpRequestInfo* request = static_cast<HttpRequestInfo*>(parser->data);
     request->url             = std::string(at, length);
     return 0;
 }
 
 int on_header_field_cb(http_parser* parser, const char* at, size_t length) {
-    std::cout << "Header field: " << std::string(at, length) << std::endl;
+    // std::cout << "Header field: " << std::string(at, length) << std::endl;
     HttpRequestInfo* request   = static_cast<HttpRequestInfo*>(parser->data);
     request->last_header_field = std::string(at, length);
     return 0;
 }
 
 int on_header_value_cb(http_parser* parser, const char* at, size_t length) {
-    std::cout << "Header value: " << std::string(at, length) << std::endl;
+    // std::cout << "Header value: " << std::string(at, length) << std::endl;
     HttpRequestInfo* request = static_cast<HttpRequestInfo*>(parser->data);
     if (request->last_header_field == "Host") {
         request->host = std::string(at, length);
@@ -205,7 +204,7 @@ int on_header_value_cb(http_parser* parser, const char* at, size_t length) {
 }
 
 int on_body_cb(http_parser* parser, const char* at, size_t length) {
-    std::cout << "Body: " << std::string(at, length) << std::endl;
+    // std::cout << "Body: " << std::string(at, length) << std::endl;
     HttpRequestInfo* request = static_cast<HttpRequestInfo*>(parser->data);
     request->body            = std::string(at, length);
     return 0;
@@ -239,7 +238,9 @@ HttpConn::HTTP_CODE HttpConn::ParseHttpRequest() {
     size_t parsed_len = http_parser_execute(m_parser, &parser_set, m_read_buf, m_read_idx);
 
     if ((int)parsed_len != m_read_idx || m_parser->http_errno != 0) {
+#ifdef ENABLE_LOG
         std::cout << "Error parsing HTTP request" << std::endl;
+#endif
         return BAD_REQUEST;
     }
     return GET_REQUEST;
@@ -308,9 +309,11 @@ bool HttpConn::GenerateHttpResponse(HTTP_CODE ret) {
 
     m_bytes_to_send = m_write_idx + m_file_stat.st_size;
 
-    // 打印 m_read_buf 和 m_file_addr 所指向的缓冲区的内容
+#ifdef DEBUG
+    // Print the contents of the buffer pointed by m_read_buf and m_file_addr
     printf("m_wirte_buf:\n%.*s\n", m_write_idx, m_write_buf);
     printf("m_file_addr:\n%.*s\n", (int)m_file_stat.st_size, m_file_addr);
+#endif
 
     return true;
 }

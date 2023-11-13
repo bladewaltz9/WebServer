@@ -93,11 +93,13 @@ void Server::EventLoopHandle() {
                     exit(-1);
                 }
 
+#ifdef ENABLE_LOG
                 // print connected client info
                 std::string client_ip   = inet_ntoa(client_addr.sin_addr);
                 uint16_t    client_port = ntohs(client_addr.sin_port);
                 std::cout << "client_ip : " << client_ip << ", "
                           << "client_port : " << client_port << std::endl;
+#endif
 
                 // init the info of new client
                 m_clients[client_fd].init(client_fd, client_addr);
