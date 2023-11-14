@@ -22,6 +22,7 @@ public:
     }
 
     void DelTimer(TimerNode* timer_node) {
+        timer_node->m_callback(timer_node->m_epoll_fd, timer_node->m_sock_fd);
         m_list.remove(timer_node);
         delete timer_node;
     }

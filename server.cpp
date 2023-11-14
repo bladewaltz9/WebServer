@@ -127,7 +127,15 @@ void Server::EventLoopHandle() {
                     exit(-1);
                 }
                 m_timer.Tick();
-            } else if (m_events[i].events & EPOLLIN) {  // read event
+            }
+            // EPOLLHUP: client close connection
+            // EPOLLRDHUP: client shutdown write
+            // EPOLLERR: error
+            else if (m_events[i].events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
+                m_timer.DelTimer(m_timer_map[cur_fd]);
+                m_clients[cur_fd].CloseConn();
+            }                                         // read event or write event
+            else if (m_events[i].events & EPOLLIN) {  // read event
                 if (m_clients[cur_fd].read()) {
 #ifdef ENABLE_LOG
                     std::cout << "receive data from client "
