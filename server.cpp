@@ -4,6 +4,14 @@
 const int Server::kMaxRequests;
 const int Server::kThreadNum;
 
+void TimerCallback(int epoll_fd, int sock_fd) {
+    EpollOperate::DeleteFd(epoll_fd, sock_fd);
+    HttpConn::m_user_cnt--;
+#ifdef ENABLE_LOG
+    std::cout << "close fd : " << sock_fd << std::endl;
+#endif
+}
+
 Server::Server()
     : m_stop_server(false),
       m_port(-1),
@@ -68,8 +76,8 @@ void Server::EventListen() {
     }
     HttpConn::m_epoll_fd = m_epoll_fd;
 
-    m_epoll_operate.AddFd(m_epoll_fd, m_server_fd, false);
-    m_epoll_operate.AddFd(m_epoll_fd, m_timer_fd, false);
+    EpollOperate::AddFd(m_epoll_fd, m_server_fd, false);
+    EpollOperate::AddFd(m_epoll_fd, m_timer_fd, false);
 }
 
 void Server::EventLoopHandle() {
@@ -96,30 +104,56 @@ void Server::EventLoopHandle() {
                     close(m_server_fd);
                     exit(-1);
                 }
-
 #ifdef ENABLE_LOG
-                // print connected client info
-                std::string client_ip   = inet_ntoa(client_addr.sin_addr);
-                uint16_t    client_port = ntohs(client_addr.sin_port);
-                std::cout << "client_ip : " << client_ip << ", "
-                          << "client_port : " << client_port << std::endl;
+                std::cout << "connect to client " << inet_ntoa(client_addr.sin_addr) << ":"
+                          << ntohs(client_addr.sin_port) << std::endl;
 #endif
-
                 // init the info of new client
                 m_clients[client_fd].init(client_fd, client_addr);
+
+                // create timer node, and add it to timer and timer_map
+                TimerNode* timer_node  = new TimerNode;
+                timer_node->m_epoll_fd = m_epoll_fd;
+                timer_node->m_sock_fd  = client_fd;
+                timer_node->m_expire   = time(NULL) + kConnectTimeout;
+                timer_node->m_callback = TimerCallback;
+
+                m_timer.AddTimer(timer_node);
+                m_timer_map[client_fd] = timer_node;
             } else if (cur_fd == m_timer_fd) {  // timer event
                 uint64_t expirations;
                 if (read(m_timer_fd, &expirations, sizeof(expirations)) == -1) {
                     perror("Failed to read timer");
                     exit(-1);
                 }
-#ifdef ENABLE_LOG
-                std::cout << "Timer event occurred" << std::endl;
-#endif
+                m_timer.Tick();
             } else if (m_events[i].events & EPOLLIN) {  // read event
-                if (m_clients[cur_fd].read()) { m_pool->append(&m_clients[cur_fd]); }
+                if (m_clients[cur_fd].read()) {
+#ifdef ENABLE_LOG
+                    std::cout << "receive data from client "
+                              << inet_ntoa(m_clients[cur_fd].GetClientAddr()->sin_addr) << ":"
+                              << ntohs(m_clients[cur_fd].GetClientAddr()->sin_port) << std::endl;
+#endif
+                    m_pool->append(&m_clients[cur_fd]);
+                    m_timer_map[cur_fd]->m_expire = time(NULL) + kConnectTimeout;
+                    m_timer.UpdataTimer(m_timer_map[cur_fd]);
+                } else {
+                    m_timer.DelTimer(m_timer_map[cur_fd]);
+                    m_clients[cur_fd].CloseConn();
+                }
             } else if (m_events[i].events & EPOLLOUT) {  // write event
-                if (!m_clients[cur_fd].write()) { m_clients[cur_fd].CloseConn(); }
+                if (m_clients[cur_fd].write()) {
+#ifdef ENABLE_LOG
+                    std::cout << "send data to client "
+                              << inet_ntoa(m_clients[cur_fd].GetClientAddr()->sin_addr) << ":"
+                              << ntohs(m_clients[cur_fd].GetClientAddr()->sin_port) << std::endl;
+#endif
+                    m_timer_map[cur_fd]->m_expire = time(NULL) + kConnectTimeout;
+                    m_timer.UpdataTimer(m_timer_map[cur_fd]);
+                } else {
+                    m_timer.DelTimer(m_timer_map[cur_fd]);
+                    m_clients[cur_fd].CloseConn();
+                }
             } else {
                 perror("Unexpected event");
             }
@@ -140,7 +174,7 @@ void Server::InitTimer() {
         exit(-1);
     }
 
-    // set timer
+    // set timer timeout
     struct itimerspec timer_spec;
     timer_spec.it_value.tv_sec     = kTimerInterval;  // first timeout
     timer_spec.it_value.tv_nsec    = 0;

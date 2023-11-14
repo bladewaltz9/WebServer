@@ -70,6 +70,10 @@ public:
     // send messages to client
     bool write();
 
+    sockaddr_in* GetClientAddr() {
+        return &m_addr;
+    }
+
 private:
     void InitState();
     /**
@@ -110,7 +114,6 @@ private:
     char m_write_buf[kWriteBufSize];
     int  m_write_idx;
 
-    EpollOperate    m_epoll_operate;
     http_parser*    m_parser;
     HttpRequestInfo m_request_info;
 

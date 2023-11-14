@@ -36,7 +36,7 @@ void HttpConn::init(int fd, sockaddr_in& addr) {
     setsockopt(m_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 
     // add clientFd to epoll
-    m_epoll_operate.AddFd(m_epoll_fd, m_fd, false);
+    EpollOperate::AddFd(m_epoll_fd, m_fd, false);
     ++m_user_cnt;
 
     // init http parser, allocate memory
@@ -58,7 +58,7 @@ void HttpConn::InitState() {
 
 void HttpConn::CloseConn() {
     if (m_fd != -1) {
-        m_epoll_operate.DeleteFd(m_epoll_fd, m_fd);
+        EpollOperate::DeleteFd(m_epoll_fd, m_fd);
         m_fd = -1;
         --m_user_cnt;
     }
@@ -84,7 +84,7 @@ void HttpConn::process() {
     }
 
     // register write event
-    m_epoll_operate.ModifyFd(m_epoll_fd, m_fd, EPOLLOUT);
+    EpollOperate::ModifyFd(m_epoll_fd, m_fd, EPOLLOUT);
 }
 
 bool HttpConn::read() {
@@ -113,7 +113,7 @@ bool HttpConn::write() {
         if (m_bytes_to_send <= 0) {
             UnmapContentFile();
             // register read event and reset EPOLLONESHOT
-            m_epoll_operate.ModifyFd(m_epoll_fd, m_fd, EPOLLIN);
+            EpollOperate::ModifyFd(m_epoll_fd, m_fd, EPOLLIN);
             // check if need to keep alive
             if (m_request_info.keep_alive) {
                 InitState();
@@ -128,7 +128,7 @@ bool HttpConn::write() {
         if (bytesWrite == -1) {
             // EAGAIN/EWOULDBLOCK indicates that the socket buffer is full
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                m_epoll_operate.ModifyFd(m_epoll_fd, m_fd, EPOLLOUT);
+                EpollOperate::ModifyFd(m_epoll_fd, m_fd, EPOLLOUT);
                 return true;
             }
             perror("write error");
