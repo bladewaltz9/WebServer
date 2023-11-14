@@ -65,7 +65,7 @@ void HttpConn::CloseConn() {
 }
 
 void HttpConn::process() {
-#ifdef ENABLE_LOG
+#ifdef ENABLE_LOG_1
     // std::string clientIP   = inet_ntoa(m_addr.sin_addr);
     // uint16_t    clientPort = ntohs(m_addr.sin_port);
     // std::cout << "receive a message from " << clientIP << ":" << clientPort << std::endl;
@@ -239,11 +239,22 @@ HttpConn::HTTP_CODE HttpConn::ParseHttpRequest() {
     size_t parsed_len = http_parser_execute(m_parser, &parser_set, m_read_buf, m_read_idx);
 
     if ((int)parsed_len != m_read_idx || m_parser->http_errno != 0) {
-#ifdef ENABLE_LOG
+#ifdef ENABLE_LOG_1
         std::cout << "Error parsing HTTP request" << std::endl;
 #endif
         return BAD_REQUEST;
     }
+#ifdef ENABLE_LOG_2
+    std::cout << "Method: " << m_request_info.method << std::endl;
+    std::cout << "URL: " << m_request_info.url << std::endl;
+    std::cout << "Version: " << m_request_info.version << std::endl;
+    std::cout << "Host: " << m_request_info.host << std::endl;
+    std::cout << "Keep-Alive: " << m_request_info.keep_alive << std::endl;
+    std::cout << "Content-Type: " << m_request_info.content_type << std::endl;
+    std::cout << "Content-Length: " << m_request_info.content_length << std::endl;
+    std::cout << "Body: " << m_request_info.body << std::endl;
+#endif
+
     return GET_REQUEST;
 }
 
@@ -357,6 +368,9 @@ bool HttpConn::MapContentFile(std::string file_path) {
     // map file to memory
     m_file_addr = (char*)mmap(nullptr, m_file_stat.st_size, PROT_READ, MAP_PRIVATE, file_fd, 0);
     if (m_file_addr == MAP_FAILED) {
+        // TODO: webbench 测试时，有时会报错："mmap error: Bad file descriptor"，原因未知
+        // std::cout << "file path: " << file_path << std::endl;
+        // std::cout << "fd flag: " << fcntl(file_fd, F_GETFL) << std::endl;
         perror("mmap error");
         return false;
     }

@@ -1,6 +1,7 @@
 # whether enable debug/log, 1: enable, 0: disable
 ENABLE_DEBUG = 1
-ENABLE_LOG = 1
+ENABLE_LOG_1 = 1
+ENABLE_LOG_2 = 0
 
 CXX = g++
 GCC = gcc
@@ -9,13 +10,18 @@ CXXFLAGS = -Wall -g -std=c++17
 LDFLAGS = -pthread -lrt
 
 ifeq ($(ENABLE_DEBUG), 1)
-CFLAGS += -DENABLE_DEBUG
-CXXFLAGS += -DENABLE_DEBUG
+	CFLAGS += -DENABLE_DEBUG
+	CXXFLAGS += -DENABLE_DEBUG
 endif
 
-ifeq ($(ENABLE_LOG), 1)
-CFLAGS += -DENABLE_LOG
-CXXFLAGS += -DENABLE_LOG
+ifeq ($(ENABLE_LOG_1), 1)
+	CFLAGS += -DENABLE_LOG_1
+	CXXFLAGS += -DENABLE_LOG_1
+endif
+
+ifeq ($(ENABLE_LOG_2), 1)
+	CFLAGS += -DENABLE_LOG_2
+	CXXFLAGS += -DENABLE_LOG_2
 endif
 
 TARGET = server

@@ -7,7 +7,7 @@ const int Server::kThreadNum;
 void TimerCallback(int epoll_fd, int sock_fd) {
     EpollOperate::DeleteFd(epoll_fd, sock_fd);
     HttpConn::m_user_cnt--;
-#ifdef ENABLE_LOG
+#ifdef ENABLE_LOG_1
     std::cout << "close fd : " << sock_fd << std::endl;
 #endif
 }
@@ -104,7 +104,7 @@ void Server::EventLoopHandle() {
                     close(m_server_fd);
                     exit(-1);
                 }
-#ifdef ENABLE_LOG
+#ifdef ENABLE_LOG_1
                 std::cout << "connect to client " << inet_ntoa(client_addr.sin_addr) << ":"
                           << ntohs(client_addr.sin_port) << std::endl;
 #endif
@@ -137,7 +137,7 @@ void Server::EventLoopHandle() {
             }                                         // read event or write event
             else if (m_events[i].events & EPOLLIN) {  // read event
                 if (m_clients[cur_fd].read()) {
-#ifdef ENABLE_LOG
+#ifdef ENABLE_LOG_1
                     std::cout << "receive data from client "
                               << inet_ntoa(m_clients[cur_fd].GetClientAddr()->sin_addr) << ":"
                               << ntohs(m_clients[cur_fd].GetClientAddr()->sin_port) << std::endl;
@@ -151,7 +151,7 @@ void Server::EventLoopHandle() {
                 }
             } else if (m_events[i].events & EPOLLOUT) {  // write event
                 if (m_clients[cur_fd].write()) {
-#ifdef ENABLE_LOG
+#ifdef ENABLE_LOG_1
                     std::cout << "send data to client "
                               << inet_ntoa(m_clients[cur_fd].GetClientAddr()->sin_addr) << ":"
                               << ntohs(m_clients[cur_fd].GetClientAddr()->sin_port) << std::endl;
