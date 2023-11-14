@@ -11,11 +11,13 @@ Server::Server()
       m_epoll_fd(-1),
       m_events(kMaxEventNum),
       m_clients(kMaxFDNum),
-      m_pool(nullptr) {}
+      m_pool(nullptr),
+      m_timer_fd(-1) {}
 
 Server::~Server() {
     close(m_server_fd);
     close(m_epoll_fd);
+    close(m_timer_fd);
 }
 
 void Server::init(uint16_t port) {
@@ -24,6 +26,7 @@ void Server::init(uint16_t port) {
 
 void Server::start() {
     InitThreadPool();
+    InitTimer();
     EventListen();
     EventLoopHandle();
 }
@@ -66,6 +69,7 @@ void Server::EventListen() {
     HttpConn::m_epoll_fd = m_epoll_fd;
 
     m_epoll_operate.AddFd(m_epoll_fd, m_server_fd, false);
+    m_epoll_operate.AddFd(m_epoll_fd, m_timer_fd, false);
 }
 
 void Server::EventLoopHandle() {
@@ -103,6 +107,15 @@ void Server::EventLoopHandle() {
 
                 // init the info of new client
                 m_clients[client_fd].init(client_fd, client_addr);
+            } else if (cur_fd == m_timer_fd) {  // timer event
+                uint64_t expirations;
+                if (read(m_timer_fd, &expirations, sizeof(expirations)) == -1) {
+                    perror("Failed to read timer");
+                    exit(-1);
+                }
+#ifdef ENABLE_LOG
+                std::cout << "Timer event occurred" << std::endl;
+#endif
             } else if (m_events[i].events & EPOLLIN) {  // read event
                 if (m_clients[cur_fd].read()) { m_pool->append(&m_clients[cur_fd]); }
             } else if (m_events[i].events & EPOLLOUT) {  // write event
@@ -117,4 +130,25 @@ void Server::EventLoopHandle() {
 void Server::InitThreadPool() {
     m_pool = std::make_shared<ThreadPool<HttpConn>>(kThreadNum, kMaxRequests);
     m_pool->init();
+}
+
+void Server::InitTimer() {
+    // create timer
+    m_timer_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK);
+    if (m_timer_fd == -1) {
+        perror("Failed to create timer");
+        exit(-1);
+    }
+
+    // set timer
+    struct itimerspec timer_spec;
+    timer_spec.it_value.tv_sec     = kTimerInterval;  // first timeout
+    timer_spec.it_value.tv_nsec    = 0;
+    timer_spec.it_interval.tv_sec  = kTimerInterval;  // interval between timeouts
+    timer_spec.it_interval.tv_nsec = 0;
+
+    if (timerfd_settime(m_timer_fd, 0, &timer_spec, nullptr) == -1) {
+        perror("Failed to set timer");
+        exit(-1);
+    }
 }

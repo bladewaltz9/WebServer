@@ -1,8 +1,22 @@
+# whether enable debug/log, 1: enable, 0: disable
+ENABLE_DEBUG = 1
+ENABLE_LOG = 1
+
 CXX = g++
 GCC = gcc
 CFLAGS = -Wall -g -std=c99
 CXXFLAGS = -Wall -g -std=c++17
-LDFLAGS = -pthread
+LDFLAGS = -pthread -lrt
+
+ifeq ($(ENABLE_DEBUG), 1)
+CFLAGS += -DENABLE_DEBUG
+CXXFLAGS += -DENABLE_DEBUG
+endif
+
+ifeq ($(ENABLE_LOG), 1)
+CFLAGS += -DENABLE_LOG
+CXXFLAGS += -DENABLE_LOG
+endif
 
 TARGET = server
 
@@ -19,7 +33,7 @@ OBJECTS = $(CPP_FILES:.cpp=.o) $(C_FILES:.c=.o)
 all: $(TARGET)
 
 $(TARGET): $(OBJECTS)
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ -o $@
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
 %.o:%.c
 	$(GCC) $(CFLAGS) -c $< -o $@

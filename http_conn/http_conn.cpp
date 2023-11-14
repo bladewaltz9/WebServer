@@ -140,10 +140,11 @@ bool HttpConn::write() {
 
             if (m_bytes_have_send >= m_iv[0].iov_len) {  // m_iv[0] had been sent
                 m_iv[0].iov_len = 0;
-                m_iv[1].iov_base += (m_bytes_have_send - m_iv[0].iov_len);
+                m_iv[1].iov_base =
+                    static_cast<char*>(m_iv[1].iov_base) + (m_bytes_have_send - m_iv[0].iov_len);
                 m_iv[1].iov_len = m_bytes_to_send;
             } else {  // m_iv[0] had not been sent
-                m_iv[0].iov_base += bytesWrite;
+                m_iv[0].iov_base = static_cast<char*>(m_iv[0].iov_base) + bytesWrite;
                 m_iv[0].iov_len -= bytesWrite;
             }
         }

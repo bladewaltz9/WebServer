@@ -8,6 +8,7 @@
 #include <iostream>
 #include <pthread.h>
 #include <sys/epoll.h>
+#include <sys/timerfd.h>
 #include <unistd.h>
 #include <vector>
 
@@ -17,10 +18,11 @@
 
 class Server {
 public:
-    static const int kMaxEventNum = 10000;  // max event number
-    static const int kThreadNum   = 4;      // the num of thread
-    static const int kMaxRequests = 1000;   // the max num of requests
-    static const int kMaxFDNum    = 65535;  // the max num of fd
+    static const int kMaxEventNum   = 10000;  // max event number
+    static const int kThreadNum     = 4;      // the num of thread
+    static const int kMaxRequests   = 1000;   // the max num of requests
+    static const int kMaxFDNum      = 65535;  // the max num of fd
+    static const int kTimerInterval = 5;      // the interval of timer
 
 public:
     Server();
@@ -35,16 +37,16 @@ private:
     void EventListen();
     // accept the connectiong of client and handle connection
     void EventLoopHandle();
-    // initial thread pool
     void InitThreadPool();
+    void InitTimer();
 
 private:
     bool m_stop_server;
 
     uint16_t m_port;
-    int32_t  m_server_fd;
+    int      m_server_fd;
 
-    int32_t                  m_epoll_fd;
+    int                      m_epoll_fd;
     std::vector<epoll_event> m_events;  // epoll kernel event table
     std::vector<HttpConn>    m_clients;
 
@@ -52,6 +54,8 @@ private:
 
     // TODO: 这里使用shared_ptr，但thread_pool.h 的内置线程类中没有使用，会不会有内存泄漏？
     std::shared_ptr<ThreadPool<HttpConn>> m_pool;
+
+    int m_timer_fd;
 };
 
 #endif
