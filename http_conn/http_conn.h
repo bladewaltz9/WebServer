@@ -118,7 +118,7 @@ private:
     HttpRequestInfo m_request_info;
 
     std::string m_file_name;  // requested file name
-    char*       m_file_addr;  // mmap address of requested file
+    void*       m_file_addr;  // mmap address of requested file
     struct stat m_file_stat;  // requested file status
 
     // iovec is used to write data to socket

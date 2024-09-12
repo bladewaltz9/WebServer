@@ -134,8 +134,7 @@ void Server::EventLoopHandle() {
             else if (m_events[i].events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
                 m_timer.DelTimer(m_timer_map[cur_fd]);
                 m_clients[cur_fd].CloseConn();
-            }                                         // read event or write event
-            else if (m_events[i].events & EPOLLIN) {  // read event
+            } else if (m_events[i].events & EPOLLIN) {  // read event
                 if (m_clients[cur_fd].read()) {
 #ifdef ENABLE_LOG_1
                     std::cout << "receive data from client "

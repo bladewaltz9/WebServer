@@ -20,11 +20,16 @@ HttpConn::HttpConn()
       m_read_idx(0),
       m_write_idx(0),
       m_parser(nullptr),
+      m_file_addr(MAP_FAILED),
       m_bytes_to_send(0),
-      m_bytes_have_send(0) {}
+      m_bytes_have_send(0) {
+    // init http parser, allocate memory
+    m_parser = (http_parser*)malloc(sizeof(http_parser));
+}
 
 HttpConn::~HttpConn() {
     free(m_parser);
+    m_parser = nullptr;
 }
 
 void HttpConn::init(int fd, sockaddr_in& addr) {
@@ -39,9 +44,6 @@ void HttpConn::init(int fd, sockaddr_in& addr) {
     EpollOperate::AddFd(m_epoll_fd, m_fd, false);
     ++m_user_cnt;
 
-    // init http parser, allocate memory
-    m_parser = (http_parser*)malloc(sizeof(http_parser));
-
     InitState();
 }
 
@@ -54,6 +56,9 @@ void HttpConn::InitState() {
 
     m_bytes_have_send = 0;
     m_bytes_to_send   = 0;
+
+    m_file_name.clear();
+    m_file_addr = nullptr;
 }
 
 void HttpConn::CloseConn() {
@@ -78,7 +83,8 @@ void HttpConn::process() {
 
     bool ret_response = GenerateHttpResponse(ret_request);
     if (!ret_response) {
-        perror("GenerateHttpResponse error");
+        UnmapContentFile();
+        std::cout << "GenerateHttpResponse error" << std::endl;
         CloseConn();
         return;
     }
@@ -287,46 +293,34 @@ HttpConn::HTTP_CODE HttpConn::GetRequestedFile() {
 bool HttpConn::GenerateHttpResponse(HTTP_CODE ret) {
     switch (ret) {
         case BAD_REQUEST:
-            AddStatusLine(400, kError400Title);
-            MapContentFile(kError400FilePath);
-            AddHeaders(m_file_stat.st_size);
+            if (!AddStatusLine(400, kError400Title) || !MapContentFile(kError400FilePath) ||
+                !AddHeaders(m_file_stat.st_size))
+                return false;
             break;
         case NO_RESOURCE:
-            AddStatusLine(404, kError404Title);
-            MapContentFile(kError404FilePath);
-            AddHeaders(m_file_stat.st_size);
+            if (!AddStatusLine(404, kError404Title) || !MapContentFile(kError404FilePath) ||
+                !AddHeaders(m_file_stat.st_size))
+                return false;
             break;
         case FORBIDDEN_REQUEST:
-            AddStatusLine(403, kError403Title);
-            MapContentFile(kError403FilePath);
-            AddHeaders(m_file_stat.st_size);
+            if (!AddStatusLine(403, kError403Title) || !MapContentFile(kError403FilePath) ||
+                !AddHeaders(m_file_stat.st_size))
+                return false;
             break;
         case INTERNAL_ERROR:
-            AddStatusLine(500, kError500Title);
-            MapContentFile(kError500FilePath);
-            AddHeaders(m_file_stat.st_size);
+            if (!AddStatusLine(500, kError500Title) || !MapContentFile(kError500FilePath) ||
+                !AddHeaders(m_file_stat.st_size))
+                return false;
             break;
         case GET_FILE:
-            AddStatusLine(200, kOk200Title);
-            MapContentFile(m_file_name);
-            AddHeaders(m_file_stat.st_size);
+            if (!AddStatusLine(200, kOk200Title) || !AddHeaders(m_file_stat.st_size)) return false;
+            if (!MapContentFile(m_file_name)) {
+                // perror("MapContentFile error");
+                return false;
+            }
             break;
         default: return false;
     }
-    // iovec point to the data to be sent
-    m_iv[0].iov_base = m_write_buf;
-    m_iv[0].iov_len  = m_write_idx;
-    m_iv[1].iov_base = m_file_addr;
-    m_iv[1].iov_len  = m_file_stat.st_size;
-
-    m_bytes_to_send = m_write_idx + m_file_stat.st_size;
-
-#ifdef DEBUG
-    // Print the contents of the buffer pointed by m_read_buf and m_file_addr
-    printf("m_wirte_buf:\n%.*s\n", m_write_idx, m_write_buf);
-    printf("m_file_addr:\n%.*s\n", (int)m_file_stat.st_size, m_file_addr);
-#endif
-
     return true;
 }
 
@@ -364,23 +358,39 @@ bool HttpConn::MapContentFile(std::string file_path) {
         perror("open file error");
         return false;
     }
-    stat(file_path.c_str(), &m_file_stat);
+    // std::cout << "file fd = " << file_fd << std::endl;
+
     // map file to memory
-    m_file_addr = (char*)mmap(nullptr, m_file_stat.st_size, PROT_READ, MAP_PRIVATE, file_fd, 0);
+    m_file_addr = mmap(NULL, m_file_stat.st_size, PROT_READ, MAP_PRIVATE, file_fd, 0);
+    close(file_fd);
     if (m_file_addr == MAP_FAILED) {
         // TODO: webbench 测试时，有时会报错："mmap error: Bad file descriptor"，原因未知
-        // std::cout << "file path: " << file_path << std::endl;
-        // std::cout << "fd flag: " << fcntl(file_fd, F_GETFL) << std::endl;
-        perror("mmap error");
+        // perror("mmap error");
         return false;
     }
-    close(file_fd);
+
+    // iovec point to the data to be sent
+    m_iv[0].iov_base = m_write_buf;
+    m_iv[0].iov_len  = m_write_idx;
+    m_iv[1].iov_base = m_file_addr;
+    m_iv[1].iov_len  = m_file_stat.st_size;
+
+    m_bytes_to_send = m_write_idx + m_file_stat.st_size;
+
+#ifdef DEBUG
+    // Print the contents of the buffer pointed by m_read_buf and m_file_addr
+    printf("m_wirte_buf:\n%.*s\n", m_write_idx, m_write_buf);
+    printf("m_file_addr:\n%.*s\n", (int)m_file_stat.st_size, m_file_addr);
+#endif
+
     return true;
 }
 
 void HttpConn::UnmapContentFile() {
-    if (m_file_addr) {
-        munmap(m_file_addr, m_file_stat.st_size);
-        m_file_addr = nullptr;
+    if (m_file_addr != MAP_FAILED) {
+        if (munmap(m_file_addr, m_file_stat.st_size) == -1) {
+            perror("munmap error");
+            return;
+        }
     }
 }

@@ -1,6 +1,6 @@
 # whether enable debug/log, 1: enable, 0: disable
-ENABLE_DEBUG = 1
-ENABLE_LOG_1 = 1
+ENABLE_DEBUG = 0
+ENABLE_LOG_1 = 0
 ENABLE_LOG_2 = 0
 
 CXX = g++
