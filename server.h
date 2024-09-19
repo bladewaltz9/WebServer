@@ -21,8 +21,8 @@
 class Server {
 public:
     static const int kMaxEventNum    = 10000;               // max event number
-    static const int kThreadNum      = 4;                   // the num of thread
-    static const int kMaxRequests    = 1000;                // the max num of requests
+    static const int kThreadNum      = 8;                   // the num of thread
+    static const int kMaxRequests    = 10000;               // the max num of requests
     static const int kMaxFDNum       = 65535;               // the max num of fd
     static const int kTimerInterval  = 5;                   // the interval of timer
     static const int kConnectTimeout = 3 * kTimerInterval;  // the timeout of connection
